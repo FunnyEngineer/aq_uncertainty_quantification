@@ -31,3 +31,26 @@ class MLP(nn.Module):
       x = nn.relu(nn.Dense(feat)(x))
     x = nn.Dense(self.features[-1])(x)
     return x
+
+class MDN(nn.Module):
+  num_components: int
+
+  @nn.compact
+  def __call__(self, x):
+    x = nn.relu(nn.Dense(128)(x))
+    x = nn.relu(nn.Dense(128)(x))
+    x = nn.tanh(nn.Dense(64)(x))
+
+    # Instead of regressing directly the value of the mass, the network
+    # will now try to estimate the parameters of a mass distribution.
+    categorical_logits = nn.Dense(self.num_components)(x)
+    alpha = 1 +  nn.softplus(nn.Dense(self.num_components)(x))
+    beta = 1 + nn.softplus(nn.Dense(self.num_components)(x))
+
+    dist = tfd.Independent(tfd.MixtureSameFamily(
+        mixture_distribution=tfd.Categorical(logits=categorical_logits),
+        components_distribution=tfd.Beta(alpha, beta)))
+    
+    dist = tfd.Independent(dist)
+    
+    return dist

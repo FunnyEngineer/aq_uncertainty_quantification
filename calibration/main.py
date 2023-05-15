@@ -1,16 +1,20 @@
 import argparse
 import os
+import shutil
 from pathlib import Path
 import jax
 import numpy as np
 from torch.utils.data import random_split
 from data_loader import LCSFEM_Bias_Dataset, NumpyLoader
 from model import Model, MLP
+from train import train_one_epoch
+from eval import eval
 
 from jax.lib import xla_bridge
 
 import jax.numpy as jnp
-from flax.training import train_state
+from flax.training import train_state, orbax_utils
+import orbax.checkpoint
 from flax import linen as nn
 import optax
 
@@ -112,35 +116,33 @@ def main(args):
     # init eval state
     rng, z_key, eval_rng = jax.random.split(rng, args.n_input_vars)
     z = jax.random.normal(z_key, (64, 256))
+
+    # init checkpoint dir
+    ckpt_dir = 'ckpts'
+
+    if os.path.exists(ckpt_dir):
+        shutil.rmtree(ckpt_dir)  # Remove any existing checkpoints from the last notebook run.
+
+    # checkpoint
+    config = {'batch_size': args.batch_size, 'accum_iter': args.accum_iter}
+    ckpt = {'model': state, 'config': config, 'data': training_generator}
+    orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
+    save_args = orbax_utils.save_args_from_target(ckpt)
+    orbax_checkpointer.save('ckpts/orbax/single_save', ckpt, save_args=save_args)
+    options = orbax.checkpoint.CheckpointManagerOptions(max_to_keep=2, create=True)
+    checkpoint_manager = orbax.checkpoint.CheckpointManager(
+        'ckpts/orbax/managed', orbax_checkpointer, options)
+
     for epoch in range(args.epochs):
         # training loop
-        train_loss = []
-        for i, (x, y) in enumerate(training_generator):
-            # variables = model.init(rng, x)
-            def loss_fn(params):
-                y_hat = state.apply_fn({'params': params}, x)         # make forward pass
+        state, train_loss = train_one_epoch(state, training_generator)
 
-                loss = mse_loss(y_hat, y).mean()
-                train_loss.append(loss.primal.item())
-                return loss
-            grads = jax.grad(loss_fn)(state.params)
-            state = state.apply_gradients(grads=grads)
-        train_loss = np.mean(train_loss)
+        # save checkpoint
+        checkpoint_manager.save(epoch, ckpt, save_kwargs={'save_args': save_args})
 
         # evaluation loop
-        eval_loss = []
-        for i, (x,y) in enumerate(testing_generator):
-            # variables = model.init(rng, x)
-            def loss_fn(params):
-                # make forward pass
-                y_hat = state.apply_fn({'params': params}, x)
+        eval_loss = eval(state, testing_generator)
 
-                loss = mse_loss(y_hat, y).mean()
-                eval_loss.append(loss.primal.item())
-                return loss
-            grads = jax.grad(loss_fn)(state.params)
-            # eval_loss.append(grads)
-        eval_loss = np.mean(eval_loss)
         print(f'Epoch: {epoch:d}, train_loss: {train_loss:.4f}, eval_loss: {eval_loss:.4f}')
         
 
