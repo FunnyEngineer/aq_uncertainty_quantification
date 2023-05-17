@@ -4,6 +4,9 @@ from flax.linen import initializers
 from typing import Callable, Sequence
 from jax import lax
 
+import tensorflow_probability as tfp; tfp = tfp.substrates.jax
+tfd = tfp.distributions
+
 class Model(nn.Module):
     features: int
     kernel_init: Callable = initializers.lecun_normal()
@@ -52,5 +55,4 @@ class MDN(nn.Module):
         components_distribution=tfd.Beta(alpha, beta)))
     
     dist = tfd.Independent(dist)
-    
     return dist
