@@ -15,13 +15,14 @@ def numpy_collate(batch):
         return np.array(batch)
 
 class LCSFEM_Bias_Dataset(Dataset):
-    def __init__(self, pair_file, pa_dir, an_dir, transform=None, target_transform=None):
+    def __init__(self, pair_file, pa_dir, an_dir, transform=None, target_transform=None, ln_scale = False):
         an_dir = Path(an_dir)
         pa_dir = Path(pa_dir)
         self.data = self.load_file(pair_file, pa_dir, an_dir)
         self.transform = transform
         self.target_transform = target_transform
-
+        self.ln_scale = ln_scale
+        
         self.an_dir = Path(an_dir)
         self.pa_dir = Path(pa_dir)
 
@@ -35,6 +36,8 @@ class LCSFEM_Bias_Dataset(Dataset):
             image = self.transform(image)
         if self.target_transform:
             label = self.target_transform(label)
+        if self.ln_scale:
+            label = jnp.log(label)
         return sample.astype(float), label.astype(float)
     
     def load_file(self, pair_file, pa_dir, an_dir, pair_dis = 1):
@@ -54,7 +57,7 @@ class LCSFEM_Bias_Dataset(Dataset):
 
                 an_data = pd.read_csv(an_dir / row["0"], index_col = 0)
                 an_data.index = pd.to_datetime(an_data['datetime'])
-                an_data = an_data[an_data['concentration'] >= 0]
+                an_data = an_data[an_data['concentration'] > 0]
                 
                 sub_data = pa_data[pa_data.index.isin(an_data.index)].copy()
                 sub_data['an'] = an_data[an_data.index.isin(pa_data.index)]['concentration'].values

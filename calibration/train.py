@@ -31,15 +31,15 @@ def train_one_epoch(state, training_generator):
 
 # probabilistic version
 
-@jax.jit
+# @jax.jit
 def update_model(state, x, y):
     def loss_fn(params, x, y):
         # Apply the neural network model, and obtain a prediction
-        q = state.apply_fn({'params': params}, x) 
+        y_hat = state.apply_fn({'params': params}, x) 
 
         # Compute the loss function for this batch of data
         # In this instance, a simple l2 loss, averaged over the batch
-        total = q.log_prob(y)
+        total = y_hat.log_prob(y)
         import pdb; pdb.set_trace()
         return -jnp.mean(total)
     # Computes the gradients of the model

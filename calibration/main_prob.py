@@ -92,7 +92,7 @@ def main(args):
     rng, key = jax.random.split(rng)
 
     # init the dataset
-    dataset = LCSFEM_Bias_Dataset(args.pair_file, args.purple_air_dir, args.air_now_dir)
+    dataset = LCSFEM_Bias_Dataset(args.pair_file, args.purple_air_dir, args.air_now_dir, ln_scale=True)
     len_test = int(len(dataset) * args.test_ratio)
     train_set, test_set = random_split(dataset, [(len(dataset) - len_test), len_test])
     print(len(train_set), len(test_set))
