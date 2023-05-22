@@ -4,6 +4,7 @@ import jax.numpy as jnp
 from torch.utils.data import DataLoader, Dataset
 from pathlib import Path 
 from os.path import isfile
+from sklearn.preprocessing import MinMaxScaler
 
 def numpy_collate(batch):
     if isinstance(batch[0], np.ndarray):
@@ -22,6 +23,9 @@ class LCSFEM_Bias_Dataset(Dataset):
         self.transform = transform
         self.target_transform = target_transform
         self.ln_scale = ln_scale
+        self.scaler = MinMaxScaler(feature_range=(1e-5, 0.999999)).fit(self.data.iloc[:, -1].values.reshape(-1, 1))
+        # if self.ln_scale:
+        #     self.data.iloc[:, -1] = self.scaler.transform(self.data.iloc[:, -1].values.reshape(-1, 1))
         
         self.an_dir = Path(an_dir)
         self.pa_dir = Path(pa_dir)
@@ -37,7 +41,8 @@ class LCSFEM_Bias_Dataset(Dataset):
         if self.target_transform:
             label = self.target_transform(label)
         if self.ln_scale:
-            label = jnp.log(label)
+            label = jnp.log(label) # min max -> - 0.5, 2.3
+        #     label = self.scaler.transform(label.reshape(-1, 1))
         return sample.astype(float), label.astype(float)
     
     def load_file(self, pair_file, pa_dir, an_dir, pair_dis = 1):

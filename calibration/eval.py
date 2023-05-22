@@ -34,7 +34,7 @@ def eval_prob(state, testing_generator):
             # make forward pass
             q = state.apply_fn({'params': params}, x)
 
-            loss = -jnp.mean(q.log_prob(y[:]))
+            loss = jnp.abs(jnp.mean(q.log_prob(y)))
             eval_loss.append(loss.primal.item())
             return loss
         grads = jax.grad(loss_fn)(state.params)

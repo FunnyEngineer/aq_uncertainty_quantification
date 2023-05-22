@@ -46,13 +46,17 @@ class MDN(nn.Module):
 
     # Instead of regressing directly the value of the mass, the network
     # will now try to estimate the parameters of a mass distribution.
-    categorical_logits = nn.Dense(self.num_components)(x)
-    alpha = 1 +  nn.softplus(nn.Dense(self.num_components)(x))
-    beta = 1 + nn.softplus(nn.Dense(self.num_components)(x))
+    # categorical_logits = nn.Dense(self.num_components)(x)
+    # alpha = 1 +  nn.softplus(nn.Dense(self.num_components)(x))
+    # beta = 1 + nn.softplus(nn.Dense(self.num_components)(x))
+    mu = nn.Dense(1)(x)
+    sigma = nn.relu(nn.Dense(1)(x))
 
-    dist = tfd.Independent(tfd.MixtureSameFamily(
-        mixture_distribution=tfd.Categorical(logits=categorical_logits),
-        components_distribution=tfd.Beta(alpha, beta)))
+    dist = tfd.Normal(loc= mu, scale = sigma)
     
-    dist = tfd.Independent(dist)
+    # dist = tfd.Independent(tfd.MixtureSameFamily( # gaussian distribution
+    #     mixture_distribution=tfd.Categorical(logits=categorical_logits), 
+    #     components_distribution=tfd.Beta(alpha, beta))) # normal funciton
+    
+    # dist = tfd.Independent(dist)
     return dist

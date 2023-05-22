@@ -31,7 +31,7 @@ def train_one_epoch(state, training_generator):
 
 # probabilistic version
 
-# @jax.jit
+@jax.jit
 def update_model(state, x, y):
     def loss_fn(params, x, y):
         # Apply the neural network model, and obtain a prediction
@@ -51,8 +51,6 @@ def train_one_epoch_prob(state, training_generator):
     train_loss = []
     for i, (x, y) in enumerate(training_generator):
         state, loss, grads = update_model(state, x, y)
-        print(loss)
-        print(loss.item())
         train_loss.append(loss.item())
 
         state = state.apply_gradients(grads=grads)
