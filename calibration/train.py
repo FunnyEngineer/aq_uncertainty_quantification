@@ -40,7 +40,6 @@ def update_model(state, x, y):
         # Compute the loss function for this batch of data
         # In this instance, a simple l2 loss, averaged over the batch
         total = y_hat.log_prob(y)
-        import pdb; pdb.set_trace()
         return -jnp.mean(total)
     # Computes the gradients of the model
     loss, grads = jax.value_and_grad(loss_fn)(state.params, x, y)
@@ -52,7 +51,9 @@ def train_one_epoch_prob(state, training_generator):
     for i, (x, y) in enumerate(training_generator):
         state, loss, grads = update_model(state, x, y)
         train_loss.append(loss.item())
-
+        print(loss.item())
+        if loss.item() == jnp.nan: 
+            pdb.set_trace()
         state = state.apply_gradients(grads=grads)
     train_loss = jnp.mean(jnp.array(train_loss))
     return state, train_loss

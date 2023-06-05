@@ -18,6 +18,8 @@ import orbax.checkpoint
 from flax import linen as nn
 import optax
 
+os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = '\"platform\"'
+
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
 
@@ -119,19 +121,16 @@ def main(args):
 
     # init checkpoint dir
     ckpt_dir = 'ckpts'
-
-    if os.path.exists(ckpt_dir):
-        shutil.rmtree(ckpt_dir)  # Remove any existing checkpoints from the last notebook run.
-
+    
     # checkpoint
     config = {'batch_size': args.batch_size, 'accum_iter': args.accum_iter}
     ckpt = {'model': state, 'config': config, 'data': training_generator}
     orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
     save_args = orbax_utils.save_args_from_target(ckpt)
-    orbax_checkpointer.save('ckpts/orbax/single_save', ckpt, save_args=save_args)
+    orbax_checkpointer.save('ckpts/deter/single_save', ckpt, save_args=save_args)
     options = orbax.checkpoint.CheckpointManagerOptions(max_to_keep=2, create=True)
     checkpoint_manager = orbax.checkpoint.CheckpointManager(
-        'ckpts/orbax/managed', orbax_checkpointer, options)
+        'ckpts/deter', orbax_checkpointer, options)
 
     for epoch in range(args.epochs):
         # training loop

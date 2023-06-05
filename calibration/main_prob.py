@@ -18,6 +18,8 @@ import orbax.checkpoint
 from flax import linen as nn
 import optax
 
+#   os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = '\"platform\"'
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
@@ -135,10 +137,6 @@ def main(args):
 
     # init checkpoint dir
     ckpt_dir = 'ckpts'
-
-    if os.path.exists(ckpt_dir):
-        # Remove any existing checkpoints from the last notebook run.
-        shutil.rmtree(ckpt_dir)
 
     # checkpoint
     config = {'batch_size': args.batch_size, 'accum_iter': args.accum_iter}
