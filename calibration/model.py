@@ -52,7 +52,7 @@ class MDN(nn.Module):
     mu = nn.Dense(1)(x)
     sigma = nn.relu(nn.Dense(1)(x))
 
-    dist = tfd.Normal(loc= mu, scale = sigma)
+    dist = tfd.Normal(loc= mu.flatten(), scale = sigma.flatten())
     
     # dist = tfd.Independent(tfd.MixtureSameFamily( # gaussian distribution
     #     mixture_distribution=tfd.Categorical(logits=categorical_logits), 

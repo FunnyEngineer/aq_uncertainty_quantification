@@ -10,4 +10,5 @@ __pycache__
 */.tox*
 */.nox*
 */.venv*
-*/ckpts/*
+**/ckpts/**
+backup/**

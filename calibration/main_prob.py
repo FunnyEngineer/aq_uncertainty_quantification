@@ -1,6 +1,6 @@
 import argparse
 import os
-import shutil
+import torch
 from pathlib import Path
 import jax
 import numpy as np
@@ -14,6 +14,7 @@ from jax.lib import xla_bridge
 
 import jax.numpy as jnp
 from flax.training import train_state, orbax_utils
+from flax.metrics.tensorboard import SummaryWriter
 import orbax.checkpoint
 from flax import linen as nn
 import optax
@@ -77,7 +78,7 @@ def get_args_parser():
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
-    parser.add_argument('--seed', default=0, type=int)
+    parser.add_argument('--seed', default=1340, type=int)
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
 
@@ -101,6 +102,7 @@ def mse_loss(preds, targets):
 def main(args):
     # fix the seed for reproducibility
     seed = args.seed
+    torch.manual_seed(seed)
     jax.random.PRNGKey(seed)
     np.random.seed(seed)
     rng = jax.random.PRNGKey(seed)
@@ -143,11 +145,13 @@ def main(args):
     ckpt = {'model': state, 'config': config, 'data': training_generator}
     orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
     save_args = orbax_utils.save_args_from_target(ckpt)
-    orbax_checkpointer.save('ckpts/prob/single_save', ckpt, save_args=save_args)
     options = orbax.checkpoint.CheckpointManagerOptions(
-        max_to_keep=2, create=True)
+        max_to_keep=5, create=True)
     checkpoint_manager = orbax.checkpoint.CheckpointManager(
         'ckpts/prob', orbax_checkpointer, options)
+    
+    # tensorboard
+    summary_writer = SummaryWriter('logs/prob')
 
     for epoch in range(args.epochs):
         # training loop
@@ -158,11 +162,35 @@ def main(args):
                                 'save_args': save_args})
 
         # evaluation loop
+        ckpt = {'model': state, 'config': config, 'data': training_generator}
         eval_loss = eval_prob(state, testing_generator)
 
         print(
             f'Epoch: {epoch:d}, train_loss: {train_loss:.4f}, eval_loss: {eval_loss:.4f}')
-
+        summary_writer.scalar('train_loss', train_loss, epoch)
+        summary_writer.scalar('eval_loss', eval_loss, epoch)
+        
+    # predict the testing set using the trained model
+    y_true, y_pred = predict(testing_generator, checkpoint_manager)
+    # export the prediction
+    y_true = jnp.concatenate(y_true)
+    y_pred = jnp.concatenate(y_pred)
+    output_dir = Path(args.output_dir)
+    jnp.savetxt(output_dir / "test_y_true_prob.csv", y_true, delimiter=",")
+    jnp.savetxt(output_dir / "test_y_pred_prob.csv", y_pred, delimiter=",")
+    
+    
+def predict(testing_generator, checkpoint_manager):
+    y_true = []
+    y_pred = []
+    # restor the latest state
+    step = checkpoint_manager.latest_step()
+    state = checkpoint_manager.restore(step)
+    for i, (x, y) in enumerate(testing_generator):
+        sub_y_pred = state.apply_fn({'params': state.params}, x)
+        y_pred.append(sub_y_pred)
+        y_true.append(y)
+    return y_true, y_pred
 
 if __name__ == '__main__':
     args = get_args_parser()
